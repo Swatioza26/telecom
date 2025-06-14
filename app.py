@@ -1,82 +1,66 @@
-
 import streamlit as st
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import joblib
+import streamlit_authenticator as stauth
+import yaml
+from yaml import SafeLoader
 
-# Load the segmented data
-df = pd.read_csv("customer_segments.csv")
+# --- User Authentication Setup ---
+# Password hashing
+hashed_passwords = stauth.Hasher(['1234']).generate()
 
-# Sidebar - filter by cluster
-st.sidebar.title("Segment Selector")
-clusters = sorted(df["Cluster"].unique())
-selected_cluster = st.sidebar.selectbox("Choose a Segment", clusters)
+# Config dictionary
+credentials = {
+    'usernames': {
+        'swati': {
+            'name': 'Swati Sharma',
+            'password': hashed_passwords[0]
+        }
+    }
+}
 
-# Filtered data
-filtered_df = df[df["Cluster"] == selected_cluster]
+authenticator = stauth.Authenticate(
+    credentials,
+    'customer_dashboard',   # cookie name
+    'abcdef',               # key
+    cookie_expiry_days=1
+)
 
-st.title("Customer Segmentation Dashboard")
-st.write(f"## Segment {selected_cluster} Overview")
+# Login
+name, authentication_status, username = authenticator.login('Login', 'main')
 
-# Summary stats
-st.write(filtered_df.describe())
+# --- Authenticated App ---
+if authentication_status:
+    authenticator.logout('Logout', 'sidebar')
+    st.sidebar.success(f"Welcome {name}!")
 
-# Revenue distribution
-st.subheader("Monthly Revenue Distribution")
-fig, ax = plt.subplots()
-sns.histplot(filtered_df["MonthlyRevenue"], kde=True, ax=ax)
-st.pyplot(fig)
+    # Load the segmented data
+    df = pd.read_csv("customer_segments.csv")
 
-import streamlit as st
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-import joblib
-import os
+    # Sidebar - filter by cluster
+    st.sidebar.title("Segment Selector")
+    clusters = sorted(df["Cluster"].unique())
+    selected_cluster = st.sidebar.selectbox("Choose a Segment", clusters)
 
-# --- LOGIN SECTION START ---
-USERNAME = os.getenv("APP_USERNAME", "admin")
-PASSWORD = os.getenv("APP_PASSWORD", "1234")
+    # Filtered data
+    filtered_df = df[df["Cluster"] == selected_cluster]
 
-def login():
-    st.title("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username == USERNAME and password == PASSWORD:
-            st.session_state["logged_in"] = True
-        else:
-            st.error("Invalid username or password")
+    st.title("Customer Segmentation Dashboard")
+    st.write(f"## Segment {selected_cluster} Overview")
 
-if "logged_in" not in st.session_state:
-    st.session_state["logged_in"] = False
+    # Summary stats
+    st.write(filtered_df.describe())
 
-if not st.session_state["logged_in"]:
-    login()
-    st.stop()
-# --- LOGIN SECTION END ---
+    # Revenue distribution
+    st.subheader("Monthly Revenue Distribution")
+    fig, ax = plt.subplots()
+    sns.histplot(filtered_df["MonthlyRevenue"], kde=True, ax=ax)
+    st.pyplot(fig)
 
-# Your original app starts here
-# Load the segmented data
-df = pd.read_csv("customer_segments.csv")
+elif authentication_status == False:
+    st.error("Username or password is incorrect")
 
-# Sidebar - filter by cluster
-st.sidebar.title("Segment Selector")
-clusters = sorted(df["Cluster"].unique())
-selected_cluster = st.sidebar.selectbox("Choose a Segment", clusters)
-
-# Filtered data
-filtered_df = df[df["Cluster"] == selected_cluster]
-
-st.title("Customer Segmentation Dashboard")
-st.write(f"## Segment {selected_cluster} Overview")
-
-# Summary stats
-st.write(filtered_df.describe())
-
-# Revenue distribution
-st.subheader("Monthly Revenue Distribution")
-fig, ax = plt.subplots()
-sns.histplot(filtered_df["MonthlyRevenue"], kde=True, ax=ax)
-st.pyplot(fig)
+elif authentication_status is None:
+    st.warning("Please enter your username and password")
